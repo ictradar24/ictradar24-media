@@ -1,3 +1,0 @@
-Data e ora correnti: 2026-09-27 00:30:01 UTC
-Questa e' una prova tecnica: verifica della capacita' di scrittura su GitHub da una sessione avviata da schedulazione.
-Seconda esecuzione (riprova della stessa schedulazione), per confermare la riproducibilita'.
