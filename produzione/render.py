@@ -226,6 +226,42 @@ def slide_premio(s, fmt, colore, num):
     return img
 
 
+def slide_nonassegnati(s, fmt, colore, num):
+    """Gartner NBA Edition: i premi senza vincitore, tutti in una slide, con il motivo."""
+    img, d = canvas(fmt)
+    intestazione(d, fmt, s["etichetta"], colore, num)
+    ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
+    y = blocco(d, ml, 300, s["titolo"], f(DISP, 66), WHITE, 76, maxw)
+    y += 52
+    for v in s["voci"]:
+        y = blocco(d, ml, y, v["premio"], f(DISP, 46), CYAN, 54, maxw)
+        mono(d, ml, y + 6, v["criterio"].upper(), f(MONO, 21), STEEL, 3)
+        y = blocco(d, ml, y + 48, v["motivo"], f(BODY, 32), WHITE, 44, maxw)
+        y += 50
+    return img
+
+
+def slide_quintetto(s, fmt, colore, num):
+    """Gartner NBA Edition, Starting Five: cinque nomi con il quadrante, senza ordine."""
+    img, d = canvas(fmt)
+    intestazione(d, fmt, s["etichetta"], colore, num)
+    ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
+    y = blocco(d, ml, 300, s["premio"], f(DISP, 76), WHITE, 86, maxw)
+    mono(d, ml, y + 22, s["criterio"].upper(), f(MONO, 24), STEEL, 3)
+    y += 100
+    fnome, fq = f(DISP, 52), f(MONO, 21)
+    for v in s["voci"]:
+        cx, cy = ml * SS, (y + 22) * SS
+        d.ellipse([cx, cy, cx + 18 * SS, cy + 18 * SS], fill=CYAN)
+        d.text(((ml + 40) * SS, y * SS), v["nome"], font=fnome, fill=CYAN)
+        larg = d.textlength(v["nome"], font=fnome) / SS
+        mono(d, ml + 40 + larg + 24, y + 26, v["quadrante"].upper(), fq, STEEL, 3)
+        y += 74
+    if s.get("nota"):
+        blocco(d, ml, y + 30, s["nota"], f(BODY, 32), STEEL, 44, maxw)
+    return img
+
+
 def slide_fonte(s, fmt, colore, num):
     """Chiusura: fonte, natura editoriale, eventuale disclaimer obbligatorio."""
     img, d = canvas(fmt)
@@ -310,6 +346,8 @@ TIPI = {
     "perche":    slide_perche,
     "elenco":    slide_elenco,
     "premio":    slide_premio,
+    "nonassegnati": slide_nonassegnati,
+    "quintetto": slide_quintetto,
     "fonte":     slide_fonte,
     "storia":    slide_storia,
     "segui":     slide_segui,
