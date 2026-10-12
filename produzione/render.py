@@ -113,10 +113,46 @@ def mono(d, x, y, testo, font, fill, tracking):
 
 
 def intestazione(d, fmt, etichetta, colore, numerazione=None):
-    mono(d, fmt["ML"], fmt["MT"], etichetta.upper(), f(MONOB, 26), colore, 4)
+    """Etichetta di rubrica in alto a sinistra, più la numerazione a destra.
+
+    Dal 12 ottobre 2026 l'etichetta e' una TARGHETTA piena nel colore della
+    rubrica con il testo scuro sopra (brand book §7, «la firma di colore»):
+    e' il primo dei due richiami al colore della rubrica sulle slide del
+    carosello, l'altro sono gli archi nell'angolo (vedi archi_angolo). Prima
+    era una scritta sottile nel colore della rubrica su fondo notte, che nel
+    feed si perdeva. Le Storie non passano di qui e tengono la barra a sinistra.
+    """
+    et = etichetta.upper()
+    if et:
+        fnt = f(MONOB, 26)
+        larg = sum(d.textlength(ch, font=fnt) for ch in et) + 4 * SS * (len(et) - 1)
+        x0, y0 = (fmt["ML"] - 18) * SS, (fmt["MT"] - 10) * SS
+        x1, y1 = fmt["ML"] * SS + larg + 18 * SS, (fmt["MT"] + 42) * SS
+        d.rounded_rectangle([x0, y0, x1, y1], radius=6 * SS, fill=colore)
+        mono(d, fmt["ML"], fmt["MT"] + 2, et, fnt, NIGHT, 4)
     if numerazione:
         mono(d, fmt["W"] - fmt["ML"] - 72, fmt["MT"], numerazione,
              f(MONO, 24), STEEL, 3)
+
+
+def archi_angolo(img, fmt, colore):
+    """Il logo ripreso in piccolo nell'angolo in basso a destra, nel colore
+    della rubrica: tre archi concentrici con il puntino (brand book §6 per la
+    geometria del marchio, §7 per questa firma). Aggiunto il 12 ottobre 2026,
+    deciso da Simone. Solo sulle slide del carosello: non sul «perche' conta»
+    e non sulla slide «segui», che hanno il fondo pieno, e non sulle Storie.
+    Resta entro 200 px dall'angolo, cosi' non tocca il corpo e la riga fonte.
+    """
+    import math
+    d = ImageDraw.Draw(img)
+    cx, cy = fmt["W"] * SS, fmt["H"] * SS
+    for r, al in zip([92, 142, 192], [1.0, 0.86, 0.72]):
+        c = tuple(int(colore[k] * al + NIGHT[k] * (1 - al)) for k in range(3))
+        rr = r * SS
+        d.arc([cx - rr, cy - rr, cx + rr, cy + rr], 180, 270, fill=c, width=12 * SS)
+    ang = math.radians(180 + 22)
+    bx, by = cx + 232 * SS * math.cos(ang), cy + 232 * SS * math.sin(ang)
+    d.ellipse([bx - 11 * SS, by - 11 * SS, bx + 11 * SS, by + 11 * SS], fill=colore)
 
 
 def salva(img, fmt, percorso):
@@ -212,13 +248,15 @@ def slide_elenco(s, fmt, colore, num):
 
 
 def slide_premio(s, fmt, colore, num):
-    """Nome premio, criterio in mono, vincitore in grande."""
+    """Nome premio, criterio in mono, vincitore in grande.
+    Dal 12 ottobre 2026 il vincitore e' nel colore della rubrica, non piu' in
+    ciano fisso: accanto alla targhetta viola stonava (brand book §4, §7)."""
     img, d = canvas(fmt)
     intestazione(d, fmt, s["etichetta"], colore, num)
     y = blocco(d, fmt["ML"], 340, s["premio"], f(DISP, 76), WHITE, 86,
                fmt["W"] - fmt["ML"] * 2)
     mono(d, fmt["ML"], y + 22, s["criterio"].upper(), f(MONO, 24), STEEL, 3)
-    y = blocco(d, fmt["ML"], y + 130, s["vincitore"], f(DISP, 96), CYAN, 106,
+    y = blocco(d, fmt["ML"], y + 130, s["vincitore"], f(DISP, 96), colore, 106,
                fmt["W"] - fmt["ML"] * 2)
     if s.get("nota"):
         blocco(d, fmt["ML"], y + 34, s["nota"], f(BODY, 34), STEEL, 46,
@@ -234,7 +272,7 @@ def slide_nonassegnati(s, fmt, colore, num):
     y = blocco(d, ml, 300, s["titolo"], f(DISP, 66), WHITE, 76, maxw)
     y += 52
     for v in s["voci"]:
-        y = blocco(d, ml, y, v["premio"], f(DISP, 46), CYAN, 54, maxw)
+        y = blocco(d, ml, y, v["premio"], f(DISP, 46), colore, 54, maxw)
         mono(d, ml, y + 6, v["criterio"].upper(), f(MONO, 21), STEEL, 3)
         y = blocco(d, ml, y + 48, v["motivo"], f(BODY, 32), WHITE, 44, maxw)
         y += 50
@@ -252,8 +290,8 @@ def slide_quintetto(s, fmt, colore, num):
     fnome, fq = f(DISP, 52), f(MONO, 21)
     for v in s["voci"]:
         cx, cy = ml * SS, (y + 22) * SS
-        d.ellipse([cx, cy, cx + 18 * SS, cy + 18 * SS], fill=CYAN)
-        d.text(((ml + 40) * SS, y * SS), v["nome"], font=fnome, fill=CYAN)
+        d.ellipse([cx, cy, cx + 18 * SS, cy + 18 * SS], fill=colore)
+        d.text(((ml + 40) * SS, y * SS), v["nome"], font=fnome, fill=colore)
         larg = d.textlength(v["nome"], font=fnome) / SS
         mono(d, ml + 40 + larg + 24, y + 26, v["quadrante"].upper(), fq, STEEL, 3)
         y += 74
@@ -269,7 +307,8 @@ def slide_fonte(s, fmt, colore, num):
     y = blocco(d, fmt["ML"], 300, s["fonte"], f(BODY, 36), WHITE, 50,
                fmt["W"] - fmt["ML"] * 2)
     if s.get("nota"):
-        y = blocco(d, fmt["ML"], y + 40, s["nota"], f(BODY, 32), CYAN, 44,
+        # dal 12 ottobre 2026 nel colore della rubrica, non in ciano fisso (brand book §4)
+        y = blocco(d, fmt["ML"], y + 40, s["nota"], f(BODY, 32), colore, 44,
                    fmt["W"] - fmt["ML"] * 2)
     if s.get("disclaimer"):
         blocco(d, fmt["ML"], y + 40, s["disclaimer"], f(BODY, 27), STEEL, 37,
@@ -377,6 +416,10 @@ def main(percorso_json):
         # affianca, quindi qui il colore viene rimpiazzato e non sommato.
         colore_slide = RUBRICHE.get(s.get("rubrica"), colore) if s.get("rubrica") else colore
         img = TIPI[s["tipo"]](s, fmt, colore_slide, num)
+        # La firma di colore (brand book §7, 12 ottobre 2026): sul carosello, e non
+        # sulle slide a fondo pieno. La targhetta la disegna gia' intestazione().
+        if fmt is POST and s["tipo"] not in ("perche", "segui"):
+            archi_angolo(img, fmt, colore_slide)
         nome = s.get("file") or f"{i:02d}-{s.get('nome', s['tipo'])}.png"
         salva(img, fmt, os.path.join(outdir, nome))
         prodotti.append(nome)
