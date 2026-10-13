@@ -323,7 +323,9 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
             data_destra(d, fmt, campo, 164, s["piede"])
         y = filetto(d, fmt, 186, "semplice", campo) + 44
     # linguetta e folio
-    nome = NOME_COPERTINA.get(chiave, rub["nome"])
+    # «linguetta» nella specifica sostituisce il nome della rubrica solo in copertina
+    # (Gartner: «Gartner® NBA Edition», prima menzione con il ® della policy di Gartner)
+    nome = s.get("linguetta") or NOME_COPERTINA.get(chiave, rub["nome"])
     linguetta(d, ml, y, nome, campo, True, fascia)
     if n:
         folio(d, fmt, n, tot, campo, y + 36)
