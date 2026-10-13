@@ -348,7 +348,8 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
         h_basso = 42 + sum(12 + 2 + 38 * max(1, len(wrap(d, t, fnt_voce, maxw - rientro))) + 8 for _, t in righe_basso) + 2
     limite = y_piede - 30 - h_basso
     corpi = [s.get("corpo_hook")] if s.get("corpo_hook") else [92, 86, 80, 74, 68, 62]
-    c, inter = adatta(d, s["hook"], TESTATA, corpi, 1.03, maxw, limite - y - 40)
+    # interlinea dell'hook 1,12 dal 13 ottobre 2026, scelta da Simone su Radar Italia: a 1,03 il titolo risultava schiacciato
+    c, inter = adatta(d, s["hook"], TESTATA, corpi, 1.12, maxw, limite - y - 40)
     col_hook = INK
     y = blocco(d, ml, y, s["hook"], f(TESTATA, c), col_hook, inter, maxw)
     if not righe_basso and s.get("sottotitolo"):
