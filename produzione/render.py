@@ -340,7 +340,10 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
     fnt_voce = f(TESTO, 30)
     h_basso = 0
     if righe_basso:
-        h_basso = 42 + sum(10 + 38 * max(1, len(wrap(d, t, fnt_voce, maxw - 80))) + 10 for _, t in righe_basso) + 2
+        # stessa larghezza e stessi passi del disegno qui sotto (rientro 300 per il tabellone,
+        # 64 per «E poi»): con la stima a maxw - 80 una voce su due righe sforava nel piede
+        rientro = 300 if tabellone else 64
+        h_basso = 42 + sum(12 + 2 + 38 * max(1, len(wrap(d, t, fnt_voce, maxw - rientro))) + 8 for _, t in righe_basso) + 2
     limite = y_piede - 30 - h_basso
     corpi = [s.get("corpo_hook")] if s.get("corpo_hook") else [92, 86, 80, 74, 68, 62]
     c, inter = adatta(d, s["hook"], TESTATA, corpi, 1.03, maxw, limite - y - 40)
