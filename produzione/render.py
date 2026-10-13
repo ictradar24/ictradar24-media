@@ -53,9 +53,17 @@ RUBRICHE = {
 }
 
 # Formati — brand book §7
+# Le misure qui sotto e in tutto lo script sono in unita' LOGICHE, quelle del
+# brand book (1080 di larghezza): margini, corpi, limiti di caratteri non cambiano.
 POST   = dict(W=1080, H=1350, ML=90, MT=120, MB=140)   # carosello 4:5
 STORIA = dict(W=1080, H=1920, ML=90, MT=300, MB=360)   # storia 9:16
-SS = 2  # supersampling: si disegna a 2x e si riduce, per bordi netti
+
+# Risoluzione del file finale — dal 13 ottobre 2026 il doppio delle unita' logiche:
+# carosello 2160x2700, storia 2160x3840 (brand book §7). Su iPad e sugli schermi
+# grandi le slide a 1080 venivano ingrandite e si vedevano sgranate. Instagram
+# riduce da solo a 1440 di larghezza, il suo massimo; LinkedIn tiene di piu'.
+USCITA = 2
+SS = 2 * USCITA  # supersampling: si disegna al doppio del file finale e si riduce, per bordi netti
 
 
 # ─────────────────────────────────────────────────────────────
@@ -156,7 +164,7 @@ def archi_angolo(img, fmt, colore):
 
 
 def salva(img, fmt, percorso):
-    img.resize((fmt["W"], fmt["H"]), Image.LANCZOS).save(
+    img.resize((fmt["W"] * USCITA, fmt["H"] * USCITA), Image.LANCZOS).save(
         percorso, "PNG", optimize=True)
 
 
@@ -424,7 +432,8 @@ def main(percorso_json):
         salva(img, fmt, os.path.join(outdir, nome))
         prodotti.append(nome)
 
-    print(f"Rubrica: {spec['rubrica']}  |  formato: {fmt['W']}x{fmt['H']}")
+    print(f"Rubrica: {spec['rubrica']}  |  formato: {fmt['W'] * USCITA}x{fmt['H'] * USCITA} px"
+          f" ({fmt['W']}x{fmt['H']} logici)")
     for n in prodotti:
         kb = os.path.getsize(os.path.join(outdir, n)) // 1024
         print(f"  {n}  ({kb} KB)")
