@@ -381,11 +381,68 @@ document.querySelectorAll('.tab').forEach(function (b) {{
 """
 
 
+# Le slide fisse in coda (manuale §4.4). Aggiunto il 13 ottobre 2026: quel giorno
+# l'anteprima del Radar è arrivata a Simone senza «Manca una notizia?» e senza
+# «segui», perché la spec elencava solo le slide del giorno e le fisse si accodavano
+# solo su Metricool. Da qui in poi l'anteprima le aggiunge da sola, così mostra il
+# carosello esattamente come esce.
+FISSE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "media", "fisse")
+ALT_SEGNALA = ("Slide su fondo carta avorio. Linguetta nera SEGNALATO DA VOI. Titolo grande: "
+    "manca una notizia? Sotto: se oggi è successo qualcosa che qui non c'è, scrivilo nei "
+    "commenti; la verifichiamo come tutte le altre e, se merita, domani è nel Radar con il tuo "
+    "nome. Un bottone nero con scritto scrivilo nei commenti. In basso, in grigio: chi lavora "
+    "dentro il mercato vede cose che da fuori non si vedono, questa rubrica serve a quello. "
+    "Poi la firma at ictradar24 e il marchio.")
+ALT_SEGUI = ("Slide di chiusura su fondo arancio, con titoli in avorio e testi in nero. In alto la "
+    "testata ICT Radar 24 e la firma at ictradar24. Testo grande: un minuto al giorno per sapere "
+    "che cosa è successo nel mondo ICT e tech, e nel business che lo muove. Sotto: il segnale, "
+    "non il rumore; le notizie ICT e business che contano per chi decide, ogni giorno. Poi: se "
+    "vuoi prenderti una pausa dalla frenesia e dal rumore, segui questa pagina, e un bottone nero "
+    "con scritto segui ICT Radar 24. In basso: ictradar24.com e il marchio con il blip al centro.")
+ALT_SEGUI_STORIA = ("Storia di chiusura su fondo arancio: un minuto al giorno per sapere che cosa è "
+    "successo nel mondo ICT e tech, e nel business che lo muove. Il segnale, non il rumore. Se vuoi "
+    "prenderti una pausa dalla frenesia e dal rumore, segui questa pagina, con il bottone segui "
+    "ICT Radar 24 e il marchio.")
+
+
+def aggiungi_fisse(spec):
+    """Accoda le slide fisse se la spec non le ha già: segnala e segui sul carosello di
+    Radar e Radar Italia, solo segui su Gartner e Virgolette, segui-storia sulle Storie."""
+    rub = spec.get("rubrica", "radar")
+    def ha(elenco, nome):
+        return any(os.path.basename(p) == nome for p in elenco)
+    slide = list(spec.get("slide", []))
+    alt = list(spec.get("alt", []))
+    alt += [""] * (len(slide) - len(alt))
+    aggiunte = []
+    if rub in ("radar", "italia", "radar-italia") and not ha(slide, "segnala-post.png"):
+        slide.append(os.path.join(FISSE, "segnala-post.png")); alt.append(ALT_SEGNALA)
+        aggiunte.append("segnala-post.png")
+    if not ha(slide, "segui-post.png"):
+        slide.append(os.path.join(FISSE, "segui-post.png")); alt.append(ALT_SEGUI)
+        aggiunte.append("segui-post.png")
+    spec["slide"], spec["alt"] = slide, alt
+    storie = list(spec.get("storie", []))
+    if storie and not ha(storie, "segui-storia.png"):
+        salt = list(spec.get("storie_alt", []))
+        salt += [""] * (len(storie) - len(salt))
+        storie.append(os.path.join(FISSE, "segui-storia.png")); salt.append(ALT_SEGUI_STORIA)
+        spec["storie"], spec["storie_alt"] = storie, salt
+        aggiunte.append("segui-storia.png")
+    for p in spec["slide"] + spec.get("storie", []):
+        pieno = os.path.join(spec.get("base", ""), p) if spec.get("base") else p
+        if not os.path.exists(pieno):
+            sys.exit(f"Slide non trovata: {pieno}. Le fisse si prendono da media/fisse/ del clone.")
+    if aggiunte:
+        print("Slide fisse accodate: " + ", ".join(aggiunte))
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit("Uso: python3 anteprima.py spec.json [uscita.html]")
     with open(sys.argv[1], encoding="utf-8") as fh:
         spec = json.load(fh)
+    aggiungi_fisse(spec)
     uscita = sys.argv[2] if len(sys.argv) > 2 else "anteprima.html"
     with open(uscita, "w", encoding="utf-8") as fh:
         fh.write(costruisci(spec))
