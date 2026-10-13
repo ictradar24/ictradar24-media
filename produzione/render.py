@@ -609,30 +609,43 @@ def slide_segui(s, fmt, rub, n, tot, chiave):
 
     NON si rigenera a ogni uscita: i due PNG stanno in media/fisse/ e la procedura
     quotidiana ne accoda l'URL (manuale §4.4). Il blip è al centro: ricevuto.
+    Il blocco di testo si adatta: il titolo scende di corpo finché titolo, corpo,
+    chiusura e bottone stanno sopra il filetto del piede.
     """
     img, d = canvas(fmt, SEG)
     ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
     storia = fmt is STORIA
     testata(d, fmt, SEG, fmt["MT"] + 60, 82)
     spaziato_dx(d, fmt["W"] - ml, fmt["MT"] + 60, "@ICTRADAR24", f(TAB, 34), INK, 3)
-    y = filetto(d, fmt, fmt["MT"] + 82, "semplice", SEG)
-    y += (90 if storia else 46)
-    tit = 92 if storia else 76
-    y = blocco(d, ml, y, s["titolo"], f(TESTATA, tit), CARTA, tit * 1.02, maxw)
-    y = blocco(d, ml, y + (42 if storia else 30), s["corpo"], f(TESTO, 40 if storia else 38), INK, 55 if storia else 50, maxw - 120)
-    y = blocco(d, ml, y + (40 if storia else 30), s["cta"], f(TESTATA, 56), CARTA, 62, maxw)
+    y0 = filetto(d, fmt, fmt["MT"] + 82, "semplice", SEG) + (90 if storia else 46)
+    y_f = fmt["H"] - fmt["MB"] - 170
+    corpi_tit = [92, 84, 76, 70, 64] if storia else [76, 70, 64, 58, 54]
+    g1, g2, g3 = (42, 40, 34) if storia else (30, 30, 26)
+    f_corpo, i_corpo = (f(TESTO, 40), 55) if storia else (f(TESTO, 38), 50)
+    h_bottone = 76 if s.get("bottone") else 0
+    for tit in corpi_tit:
+        f_tit, f_cta = f(TESTATA, tit), f(TESTATA, min(56, tit - 8))
+        i_cta = min(62, tit - 8) * 1.1
+        h = (altezza(d, s["titolo"], f_tit, tit * 1.02, maxw) + g1
+             + altezza(d, s["corpo"], f_corpo, i_corpo, maxw - 120) + g2
+             + altezza(d, s["cta"], f_cta, i_cta, maxw) + (g3 + h_bottone if h_bottone else 0))
+        if y0 + h <= y_f - 40:
+            break
+    y = blocco(d, ml, y0, s["titolo"], f_tit, CARTA, tit * 1.02, maxw)
+    y = blocco(d, ml, y + g1, s["corpo"], f_corpo, INK, i_corpo, maxw - 120)
+    y = blocco(d, ml, y + g2, s["cta"], f_cta, CARTA, i_cta, maxw)
     if s.get("bottone"):
         # il «bottone»: un rettangolo inchiostro con il testo in Carta, come i pulsanti del sito
         t = s["bottone"].upper()
         fb = f(TAB, 40)
         larg = larghezza_spaziata(d, t, fb, 3) + 64
-        y0 = y + (34 if storia else 26)
-        d.rectangle([ml * SS, y0 * SS, (ml + larg) * SS, (y0 + 76) * SS], fill=INK)
-        spaziato(d, ml + 32, y0 + 54, t, fb, CARTA, 3)
-    y_f = fmt["H"] - fmt["MB"] - 170
+        yb = y + g3
+        d.rectangle([ml * SS, yb * SS, (ml + larg) * SS, (yb + 76) * SS], fill=INK)
+        spaziato(d, ml + 32, yb + 54, t, fb, CARTA, 3)
     d.rectangle([ml * SS, y_f * SS, (fmt["W"] - ml) * SS, (y_f + 2) * SS], fill=mix(INK, SEG, 0.35))
     marchio(d, fmt["W"] - ml - 150, fmt["H"] - fmt["MB"] - 150, 150, INK, SEG, "centro")
-    spaziato(d, ml, fmt["H"] - fmt["MB"] - 14, "IL SEGNALE, NON IL RUMORE.", f(TAB, 30), INK, 3)
+    # il piede porta il sito: il payoff sta già nel corpo, che è la tagline dei profili
+    spaziato(d, ml, fmt["H"] - fmt["MB"] - 14, "ICTRADAR24.COM", f(TAB, 30), INK, 3)
     return img
 
 
