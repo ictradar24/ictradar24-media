@@ -77,6 +77,33 @@ def sezione_menzioni(spec):
     </section>"""
 
 
+def sezione_scartate(spec):
+    """Le candidate rimaste fuori, da valutare prima dell'approvazione. Aggiunta il 13
+    ottobre 2026: quel giorno la lista era solo nel messaggio di consegna e Simone non
+    l'ha vista. Da qui sta nell'anteprima, sopra le menzioni; se manca lo dice in rosso."""
+    if spec.get("rubrica") not in ("radar", "italia", "radar-italia"):
+        return ""
+    voci = spec.get("scartate")
+    if voci is None:
+        corpo = ('<p class="nessuna" style="color:#c0392b;font-weight:600">ATTENZIONE: '
+                 'nella spec manca la lista delle notizie scartate. Va scritta prima di '
+                 'chiedere l\'approvazione (campo «scartate»).</p>')
+    elif not voci:
+        corpo = '<p class="nessuna">Nessuna scartata che valga la pena valutare oggi.</p>'
+    else:
+        corpo = "<ol class=\"dubbi\">" + "".join(
+            f"<li><strong>{html.escape(v.get('titolo', ''))}</strong><br>"
+            f"{html.escape(v.get('fonte', ''))}<br><em>{html.escape(v.get('perche', ''))}</em></li>"
+            for v in voci) + "</ol>"
+    return f"""
+    <section class="canale" id="scartate">
+      <header class="intestazione-canale"><h2>Notizie scartate da valutare</h2></header>
+      <div class="cornice"><div class="corpo-cornice">{corpo}</div></div>
+      <p class="nota">Hanno superato la verifica 1. Se ne vuoi una, si produce e si verifica
+      come le altre prima che entri.</p>
+    </section>"""
+
+
 def sezione_storie(spec):
     storie = spec.get("storie", [])
     if not storie:
@@ -361,7 +388,7 @@ code {{ font-family: var(--mono); font-size: 12px; }}
       reali. Sotto ciascuna c'e' il testo alternativo che verra' inviato.</p>
       {sezione_storie(spec)}
     </div>
-    <div>{sezione_ig}{sezione_li}{sezione_menzioni(spec)}</div>
+    <div>{sezione_ig}{sezione_li}{sezione_scartate(spec)}{sezione_menzioni(spec)}</div>
   </div>
 </div>
 
