@@ -651,6 +651,52 @@ def slide_segui(s, fmt, rub, n, tot, chiave):
     return img
 
 
+def slide_segnala(s, fmt, rub, n, tot, chiave):
+    """Penultima slide fissa: l'invito a segnalare nei commenti le notizie che mancano.
+
+    Campo Carta, come le slide che riportano un fatto e come la slide della fonte:
+    qui non parla la testata (quello è l'arancio della chiusura), parla la rubrica
+    «Segnalato da voi». Sta dopo tutte le slide dell'uscita e prima della chiusura
+    «segui». NON si rigenera a ogni uscita: il PNG sta in media/fisse/ e la
+    procedura quotidiana ne accoda l'URL prima di quello della chiusura (manuale §4.4).
+    Niente folio: la posizione cambia a ogni carosello. Il blip è «rilevato».
+    Titolo, corpo e bottone partono dall'alto; la nota sta in fondo, sopra il piede.
+    """
+    img, d = canvas(fmt, CARTA)
+    ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
+    storia = fmt is STORIA
+    linguetta(d, ml, fmt["MT"], RUBRICHE["segnalato"]["nome"], CARTA, piena=True)
+    y0 = filetto(d, fmt, fmt["MT"] + 44 + 18, "semplice", CARTA) + (100 if storia else 70)
+    y_f = fmt["H"] - fmt["MB"] - 108
+    f_nota, i_nota = f(TESTO, 27), 37
+    y_nota = y_f
+    if s.get("nota"):
+        y_nota = y_f - 40 - altezza(d, s["nota"], f_nota, i_nota, maxw - 100)
+    corpi_tit = [132, 120, 108, 96, 84] if storia else [118, 108, 98, 88, 78]
+    g1, g2 = (56, 60) if storia else (48, 56)
+    f_corpo, i_corpo = (f(TESTO, 46), 63) if storia else (f(TESTO, 44), 60)
+    h_bottone = 84 if s.get("bottone") else 0
+    for tit in corpi_tit:
+        f_tit = f(TESTATA, tit)
+        h = (altezza(d, s["titolo"], f_tit, tit * 1.0, maxw) + g1
+             + altezza(d, s["corpo"], f_corpo, i_corpo, maxw - 60)
+             + ((g2 + h_bottone) if h_bottone else 0))
+        if y0 + h <= y_nota - 60:
+            break
+    y = blocco(d, ml, y0, s["titolo"], f_tit, INK, tit * 1.0, maxw)
+    y = blocco(d, ml, y + g1, s["corpo"], f_corpo, INK, i_corpo, maxw - 60)
+    if s.get("bottone"):
+        t = s["bottone"].upper()
+        fb = f(TAB, 44)
+        larg = larghezza_spaziata(d, t, fb, 3) + 72
+        yb = y + g2
+        d.rectangle([ml * SS, yb * SS, (ml + larg) * SS, (yb + 84) * SS], fill=INK)
+        spaziato(d, ml + 36, yb + 59, t, fb, CARTA, 3)
+    if s.get("nota"):
+        blocco(d, ml, y_nota, s["nota"], f_nota, PIOMBO, i_nota, maxw - 100)
+    piede(d, fmt, CARTA, "rilevato", destra="@ictradar24")
+    return img
+
 TIPI = {
     "copertina": slide_copertina,
     "voce":      slide_voce,
@@ -663,6 +709,7 @@ TIPI = {
     "fonte":     slide_fonte,
     "storia":    slide_storia,
     "segui":     slide_segui,
+    "segnala":   slide_segnala,
 }
 
 
