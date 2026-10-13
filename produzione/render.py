@@ -617,10 +617,18 @@ def slide_segui(s, fmt, rub, n, tot, chiave):
     spaziato_dx(d, fmt["W"] - ml, fmt["MT"] + 60, "@ICTRADAR24", f(TAB, 34), INK, 3)
     y = filetto(d, fmt, fmt["MT"] + 82, "semplice", SEG)
     y += (90 if storia else 46)
-    tit = 92 if storia else 84
+    tit = 92 if storia else 76
     y = blocco(d, ml, y, s["titolo"], f(TESTATA, tit), CARTA, tit * 1.02, maxw)
-    y = blocco(d, ml, y + 42, s["corpo"], f(TESTO, 40), INK, 55, maxw - 120)
-    blocco(d, ml, y + 40, s["cta"], f(TESTATA, 56), CARTA, 62, maxw)
+    y = blocco(d, ml, y + (42 if storia else 30), s["corpo"], f(TESTO, 40 if storia else 38), INK, 55 if storia else 50, maxw - 120)
+    y = blocco(d, ml, y + (40 if storia else 30), s["cta"], f(TESTATA, 56), CARTA, 62, maxw)
+    if s.get("bottone"):
+        # il «bottone»: un rettangolo inchiostro con il testo in Carta, come i pulsanti del sito
+        t = s["bottone"].upper()
+        fb = f(TAB, 40)
+        larg = larghezza_spaziata(d, t, fb, 3) + 64
+        y0 = y + (34 if storia else 26)
+        d.rectangle([ml * SS, y0 * SS, (ml + larg) * SS, (y0 + 76) * SS], fill=INK)
+        spaziato(d, ml + 32, y0 + 54, t, fb, CARTA, 3)
     y_f = fmt["H"] - fmt["MB"] - 170
     d.rectangle([ml * SS, y_f * SS, (fmt["W"] - ml) * SS, (y_f + 2) * SS], fill=mix(INK, SEG, 0.35))
     marchio(d, fmt["W"] - ml - 150, fmt["H"] - fmt["MB"] - 150, 150, INK, SEG, "centro")
