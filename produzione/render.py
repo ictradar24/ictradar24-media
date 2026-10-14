@@ -352,8 +352,29 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
         # 64 per «E poi»): con la stima a maxw - 80 una voce su due righe sforava nel piede
         rientro = 300 if tabellone else 64
         h_basso = 42 + sum(12 + 2 + 38 * max(1, len(wrap(d, t, fnt_voce, maxw - rientro))) + 8 for _, t in righe_basso) + 2
+    # «quadrante»: il nome preciso del Magic Quadrant, occhiello in arancio sopra l'hook. Sulla
+    # copertina del Gartner c'è sempre (Simone, 14 ottobre 2026). Una riga a 30; se non ci sta,
+    # 26; se non ci sta nemmeno così, due righe spezzate fra le parole
+    quad = s.get("quadrante")
+    if quad:
+        righe_q, corpo_q = [quad.upper()], 30
+        for corpo_q in (30, 26):
+            if larghezza_spaziata(d, righe_q[0], f(TAB, corpo_q), 3) <= maxw:
+                break
+        else:
+            parole = quad.upper().split()
+            for k in range(len(parole) - 1, 0, -1):
+                if larghezza_spaziata(d, " ".join(parole[:k]), f(TAB, corpo_q), 3) <= maxw:
+                    righe_q = [" ".join(parole[:k]), " ".join(parole[k:])]
+                    break
+        for r_q in righe_q:
+            spaziato(d, ml, y + 22, r_q, f(TAB, corpo_q), SEG, 3)
+            y += corpo_q + 6
+        y += 24
     limite = y_piede - 30 - h_basso
     corpi = [s.get("corpo_hook")] if s.get("corpo_hook") else [92, 86, 80, 74, 68, 62]
+    if quad and s.get("corpo_hook"):
+        corpi += [c for c in (92, 86, 80, 74, 68, 62) if c < s["corpo_hook"]]
     # interlinea dell'hook 1,12 dal 13 ottobre 2026, scelta da Simone su Radar Italia: a 1,03 il titolo risultava schiacciato
     c, inter = adatta(d, s["hook"], TESTATA, corpi, INTERLINEA_TITOLO, maxw, limite - y - 40)
     col_hook = INK
