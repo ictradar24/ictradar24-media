@@ -74,6 +74,12 @@ STORIA = dict(W=1080, H=1920, ML=90, MT=300, MB=360)
 USCITA = 2
 SS = 2 * USCITA  # si disegna a 4x e si riduce a 2x, per bordi netti
 
+# Interlinea di tutti i titoli in Gloock (brand book §5). Era 1,03-1,06 a seconda
+# della slide; il 13 ottobre 2026 Simone ha portato l'hook di copertina a 1,12
+# perché a 1,03 risultava schiacciato, e il 14 ottobre ha chiesto lo stesso valore
+# su tutti gli altri titoli del carosello.
+INTERLINEA_TITOLO = 1.12
+
 # Le quattro posizioni del blip, su un marchio di lato 100 (brand book §5)
 BLIP = {"fuori": (98, 2), "rilevato": (69, 31), "vicino": (60, 40), "centro": (50, 50)}
 
@@ -349,7 +355,7 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
     limite = y_piede - 30 - h_basso
     corpi = [s.get("corpo_hook")] if s.get("corpo_hook") else [92, 86, 80, 74, 68, 62]
     # interlinea dell'hook 1,12 dal 13 ottobre 2026, scelta da Simone su Radar Italia: a 1,03 il titolo risultava schiacciato
-    c, inter = adatta(d, s["hook"], TESTATA, corpi, 1.12, maxw, limite - y - 40)
+    c, inter = adatta(d, s["hook"], TESTATA, corpi, INTERLINEA_TITOLO, maxw, limite - y - 40)
     col_hook = INK
     y = blocco(d, ml, y, s["hook"], f(TESTATA, c), col_hook, inter, maxw)
     if not righe_basso and s.get("sottotitolo"):
@@ -397,7 +403,7 @@ def slide_voce(s, fmt, rub, n, tot, chiave):
     if sotto:
         h_sotto = 40 + altezza(d, sotto, fs, 48, maxw - 100)
     corpi = [s.get("corpo_hook")] if s.get("corpo_hook") else [72, 66, 60, 54, 48]
-    c, inter = adatta(d, s["hook"], TESTATA, corpi, 1.12, maxw, y_piede - 30 - h_sotto - y)
+    c, inter = adatta(d, s["hook"], TESTATA, corpi, INTERLINEA_TITOLO, maxw, y_piede - 30 - h_sotto - y)
     y = blocco(d, ml, y, s["hook"], f(TESTATA, c), CARTA, inter, maxw)
     if sotto:
         blocco(d, ml, y + 40, sotto, fs, CARTA_2, 48, maxw - 100)
@@ -419,7 +425,7 @@ def slide_notizia(s, fmt, rub, n, tot, chiave):
         h_d = c_d * 0.92 + 34 + 4
         fc = f(TESTO, 38); inter_c = 54
         h_c = altezza(d, s["corpo"], fc, inter_c, maxw) + 30
-        c, inter = adatta(d, s["titolo"], TESTATA, [64, 58, 52, 46], 1.06, maxw, y_piede - 24 - y - h_d - h_c)
+        c, inter = adatta(d, s["titolo"], TESTATA, [64, 58, 52, 46], INTERLINEA_TITOLO, maxw, y_piede - 24 - y - h_d - h_c)
         y = blocco(d, ml, y, s["titolo"], f(TESTATA, c), col_t, inter, maxw)
         y += 34
         d.text(((ml - 4) * SS, (y + c_d * 0.74) * SS), dato, font=fd, fill=SEG, anchor="ls")
@@ -428,7 +434,7 @@ def slide_notizia(s, fmt, rub, n, tot, chiave):
     else:
         fc = f(TESTO, 42); inter_c = 59
         h_c = altezza(d, s["corpo"], fc, inter_c, maxw) + 44
-        c, inter = adatta(d, s["titolo"], TESTATA, [76, 70, 64, 58, 52], 1.05, maxw, y_piede - 24 - y - h_c)
+        c, inter = adatta(d, s["titolo"], TESTATA, [76, 70, 64, 58, 52], INTERLINEA_TITOLO, maxw, y_piede - 24 - y - h_c)
         y = blocco(d, ml, y, s["titolo"], f(TESTATA, c), col_t, inter, maxw)
         blocco(d, ml, y + 44, s["corpo"], fc, col_t, inter_c, maxw)
     fonte = s.get("fonte", "")
@@ -451,7 +457,7 @@ def slide_perche(s, fmt, rub, n, tot, chiave):
         folio(d, fmt, n, tot, INK)
     y = filetto(d, fmt, fmt["MT"] + 44 + 18, "semplice", INK) + 44
     y_piede = fmt["H"] - fmt["MB"] - 108
-    c, inter = adatta(d, s["testo"], TESTATA, [70, 64, 58, 52, 46], 1.1, maxw, y_piede - 30 - y)
+    c, inter = adatta(d, s["testo"], TESTATA, [70, 64, 58, 52, 46], INTERLINEA_TITOLO, maxw, y_piede - 30 - y)
     blocco(d, ml, y, s["testo"], f(TESTATA, c), CARTA, inter, maxw)
     piede(d, fmt, INK, "vicino", testo="La lettura della redazione, a partire dai fatti qui sopra.")
     return img
@@ -466,7 +472,7 @@ def slide_elenco(s, fmt, rub, n, tot, chiave):
     col_t = CARTA if campo == INK else INK
     col_s = CARTA_2 if campo == INK else PIOMBO
     if s.get("titolo"):
-        y = blocco(d, ml, y, s["titolo"], f(TESTATA, 72), col_t, 78, maxw)
+        y = blocco(d, ml, y, s["titolo"], f(TESTATA, 72), col_t, 72 * INTERLINEA_TITOLO, maxw)
         if s.get("sottotitolo"):
             spaziato(d, ml, y + 30, s["sottotitolo"].upper(), f(TAB_R, 28), col_s, 2.4)
             y += 50
@@ -504,7 +510,7 @@ def slide_premio(s, fmt, rub, n, tot, chiave):
     fv = f(TESTATA, 150)
     for r in wrap(d, s["vincitore"], fv, maxw):
         d.text((ml * SS, (y + 150 * 0.75) * SS), r, font=fv, fill=SEG, anchor="ls")
-        y += 150 * 0.95
+        y += 150 * INTERLINEA_TITOLO
     if s.get("nota"):
         blocco(d, ml, y + 34, s["nota"], f(TESTO, 38), INK, 54, maxw - 100)
     piede(d, fmt, CARTA, "rilevato", testo=s.get("fonte"), etichetta=("Fonte" if s.get("fonte") else None))
@@ -515,7 +521,7 @@ def slide_nonassegnati(s, fmt, rub, n, tot, chiave):
     img, d = canvas(fmt, CARTA)
     ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
     y = intestazione(d, fmt, rub, s, n, tot, CARTA)
-    y = blocco(d, ml, y, s["titolo"], f(TESTATA, 64), INK, 68, maxw)
+    y = blocco(d, ml, y, s["titolo"], f(TESTATA, 64), INK, 64 * INTERLINEA_TITOLO, maxw)
     y += 40
     for v in s["voci"]:
         d.rectangle([ml * SS, y * SS, (fmt["W"] - ml) * SS, (y + 2) * SS], fill=FILO)
@@ -584,7 +590,7 @@ def slide_storia(s, fmt, rub, n, tot, chiave):
         fd = f(TESTATA, c_d)
         fc = f(TESTO, 42); inter_c = 59
         h_c = altezza(d, s["corpo"], fc, inter_c, maxw) + 34
-        c, inter = adatta(d, s["titolo"], TESTATA, [72, 66, 60, 54], 1.06, maxw, y_piede - 30 - y - (c_d * 0.92 + 40) - h_c)
+        c, inter = adatta(d, s["titolo"], TESTATA, [72, 66, 60, 54], INTERLINEA_TITOLO, maxw, y_piede - 30 - y - (c_d * 0.92 + 40) - h_c)
         y = blocco(d, ml, y, s["titolo"], f(TESTATA, c), col_t, inter, maxw)
         y += 40
         d.text(((ml - 4) * SS, (y + c_d * 0.74) * SS), dato, font=fd, fill=SEG, anchor="ls")
@@ -593,7 +599,7 @@ def slide_storia(s, fmt, rub, n, tot, chiave):
     else:
         fc = f(TESTO, 44); inter_c = 62
         h_c = altezza(d, s["corpo"], fc, inter_c, maxw) + 48
-        c, inter = adatta(d, s["titolo"], TESTATA, [84, 76, 70, 64, 58], 1.05, maxw, y_piede - 30 - y - h_c)
+        c, inter = adatta(d, s["titolo"], TESTATA, [84, 76, 70, 64, 58], INTERLINEA_TITOLO, maxw, y_piede - 30 - y - h_c)
         y = blocco(d, ml, y, s["titolo"], f(TESTATA, c), col_t, inter, maxw)
         blocco(d, ml, y + 48, s["corpo"], fc, col_t, inter_c, maxw)
     fonte = s.get("fonte", "")
@@ -629,12 +635,12 @@ def slide_segui(s, fmt, rub, n, tot, chiave):
     for tit in corpi_tit:
         f_tit, f_cta = f(TESTATA, tit), f(TESTATA, min(56, tit - 8))
         i_cta = min(62, tit - 8) * 1.1
-        h = (altezza(d, s["titolo"], f_tit, tit * 1.02, maxw) + g1
+        h = (altezza(d, s["titolo"], f_tit, tit * INTERLINEA_TITOLO, maxw) + g1
              + altezza(d, s["corpo"], f_corpo, i_corpo, maxw - 120) + g2
              + altezza(d, s["cta"], f_cta, i_cta, maxw) + (g3 + h_bottone if h_bottone else 0))
         if y0 + h <= y_f - 40:
             break
-    y = blocco(d, ml, y0, s["titolo"], f_tit, CARTA, tit * 1.02, maxw)
+    y = blocco(d, ml, y0, s["titolo"], f_tit, CARTA, tit * INTERLINEA_TITOLO, maxw)
     y = blocco(d, ml, y + g1, s["corpo"], f_corpo, INK, i_corpo, maxw - 120)
     y = blocco(d, ml, y + g2, s["cta"], f_cta, CARTA, i_cta, maxw)
     if s.get("bottone"):
@@ -679,12 +685,12 @@ def slide_segnala(s, fmt, rub, n, tot, chiave):
     h_bottone = 84 if s.get("bottone") else 0
     for tit in corpi_tit:
         f_tit = f(TESTATA, tit)
-        h = (altezza(d, s["titolo"], f_tit, tit * 1.0, maxw) + g1
+        h = (altezza(d, s["titolo"], f_tit, tit * INTERLINEA_TITOLO, maxw) + g1
              + altezza(d, s["corpo"], f_corpo, i_corpo, maxw - 60)
              + ((g2 + h_bottone) if h_bottone else 0))
         if y0 + h <= y_nota - 60:
             break
-    y = blocco(d, ml, y0, s["titolo"], f_tit, INK, tit * 1.0, maxw)
+    y = blocco(d, ml, y0, s["titolo"], f_tit, INK, tit * INTERLINEA_TITOLO, maxw)
     y = blocco(d, ml, y + g1, s["corpo"], f_corpo, INK, i_corpo, maxw - 60)
     if s.get("bottone"):
         t = s["bottone"].upper()
