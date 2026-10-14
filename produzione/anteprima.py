@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ICT RADAR 24 — Generatore di anteprime (copia dal Progetto)."""
 
-import base64, html, json, os, sys
+import base64, html, json, os, re, sys
 
 RUBRICHE = {
     "radar": "#00D8C4", "italia": "#00A868", "allerta": "#FFB020",
@@ -13,6 +13,13 @@ RUBRICHE = {
 TAGLIO_IG = 125
 TAGLIO_LI = 140
 LIMITE_DOC_TITLE = 58
+
+# Le menzioni LinkedIn nel testo che si programma, dal 14 ottobre 2026 (manuale §3-ter,
+# «I tag dalla rubrica»): @[urn:li:organization:ID|Nome] o @[urn:li:person:ID|Nome].
+# Su LinkedIn si vede solo il Nome, quindi l'anteprima mostra il Nome e conta il taglio
+# dei 140 caratteri su quello, non sulla stringa intera. Aggiunto il 15 ottobre 2026.
+MENZIONE = re.compile(r"@\[(urn:li:([A-Za-z]+):[^|\]\s]+)\|([^\]\n]+)\]")
+TETTO_MENZIONI = 3
 
 
 def incorpora(percorso):
@@ -33,34 +40,171 @@ def spezza(testo, limite):
     return testo[:taglio], testo[taglio:]
 
 
-def blocco_didascalia(testo, limite, etichetta_taglio):
-    visibile, nascosto = spezza(testo, limite)
-    out = [f'<p class="didascalia">{testo_html(visibile)}']
+def segmenti(testo):
+    """Il testo in pezzi (visibile, urn): urn è None per il testo normale."""
+    out, pos = [], 0
+    for m in MENZIONE.finditer(testo):
+        if m.start() > pos:
+            out.append((testo[pos:m.start()], None))
+        out.append((m.group(3), m.group(1)))
+        pos = m.end()
+    if pos < len(testo):
+        out.append((testo[pos:], None))
+    return out
+
+
+def visibile(testo):
+    """Il testo come lo legge chi scorre il feed: le menzioni ridotte al nome."""
+    return "".join(v for v, _ in segmenti(testo))
+
+
+def taglia_segmenti(segs, n):
+    prima, dopo, contati = [], [], 0
+    for v, urn in segs:
+        if contati >= n:
+            dopo.append((v, urn))
+        elif contati + len(v) <= n:
+            prima.append((v, urn))
+        else:
+            k = n - contati
+            prima.append((v[:k], urn))
+            dopo.append((v[k:], urn))
+        contati += len(v)
+    return prima, dopo
+
+
+def html_segmenti(segs):
+    return "".join(
+        f'<span class="menzione" title="{html.escape(urn)}">{testo_html(v)}</span>'
+        if urn else testo_html(v)
+        for v, urn in segs)
+
+
+def blocco_didascalia(testo, limite, etichetta_taglio, menzioni=False):
+    """Con menzioni=True (solo il post LinkedIn) le menzioni si vedono come nome e il
+    taglio si conta sul testo visibile. Altrove il testo resta com'è, perché lì una
+    menzione LinkedIn uscirebbe davvero come testo grezzo."""
+    segs = segmenti(testo) if menzioni else [(testo, None)]
+    vis = "".join(v for v, _ in segs)
+    sopra, nascosto = spezza(vis, limite)
+    prima, dopo = taglia_segmenti(segs, len(sopra))
+    out = [f'<p class="didascalia">{html_segmenti(prima)}']
     if nascosto:
         out.append(f'<span class="taglio">... {etichetta_taglio}</span>')
-        out.append(f'<span class="resto">{testo_html(nascosto)}</span>')
+        out.append(f'<span class="resto">{html_segmenti(dopo)}</span>')
     out.append("</p>")
     return "".join(out)
 
 
+def conteggio_li(testo):
+    n_m = len(MENZIONE.findall(testo))
+    if not n_m:
+        return f"{len(testo)} caratteri"
+    return (f"{len(visibile(testo))} caratteri visibili · {len(testo)} nel testo inviato · "
+            f"{n_m} {'menzione' if n_m == 1 else 'menzioni'}")
+
+
+def primo_commento(li):
+    return li.get("firstCommentText", li.get("primoCommento", ""))
+
+
+def controlla_menzioni(spec):
+    """Le menzioni come stanno nel testo che si programma, non come le dichiara la spec,
+    più i controlli che si possono fare senza la rubrica: tetto, posti vietati, forma."""
+    li = spec.get("linkedin") or {}
+    ig = spec.get("instagram") or {}
+    varianti = li.get("varianti", [])
+    trovate, problemi, avvisi = [], [], []
+    for j, v in enumerate(varianti):
+        testo = v.get("testo", "")
+        nome_var = v.get("nome", f"Variante {j + 1}")
+        ms = MENZIONE.findall(testo)
+        for urn, tipo, nome in ms:
+            trovate.append((nome_var if len(varianti) > 1 else "LinkedIn", nome, urn, tipo))
+        if len(ms) > TETTO_MENZIONI:
+            problemi.append(f"{nome_var}: {len(ms)} menzioni, il tetto è {TETTO_MENZIONI}.")
+        if testo.count("@[") > len(ms):
+            problemi.append(f"{nome_var}: una menzione scritta male (manca l'urn o la barra "
+                            "prima del nome). Uscirebbe come testo con le parentesi quadre.")
+    altrove = [
+        ("nella didascalia Instagram: lì uscirebbe come testo, e i tag Instagram "
+         "restano a mano", ig.get("testo", "")),
+        ("nel primo commento: lì non va mai", primo_commento(li)),
+        ("nel titolo del documento: lì non va mai", li.get("documentTitle", "")),
+        ("nei testi alternativi: lì non va mai",
+         " ".join(spec.get("alt", []) + spec.get("storie_alt", []))),
+    ]
+    for dove, testo in altrove:
+        if "@[" in testo:
+            problemi.append(f"Menzione {dove}.")
+    m = spec.get("menzioni") or {}
+    dichiarati = {}
+    for v in m.get("elenco", []):
+        s = (v.get("urn") or "").strip()
+        trovata = MENZIONE.search(s)
+        if trovata:
+            dichiarati[trovata.group(1)] = trovata.group(0)
+        elif s.startswith("urn:li:"):
+            dichiarati[s] = None
+    nel_testo = {urn: f"@[{urn}|{nome}]" for _, nome, urn, _ in trovate}
+    for urn, intera in nel_testo.items():
+        if urn not in dichiarati:
+            avvisi.append(f"Nel testo ma non nell'elenco della specifica: {intera}")
+        elif dichiarati[urn] and dichiarati[urn] != intera:
+            avvisi.append(f"Stesso identificativo, nome diverso: nel testo {intera}, "
+                          f"nella specifica {dichiarati[urn]}")
+    for urn in dichiarati:
+        if urn not in nel_testo:
+            avvisi.append(f"Nell'elenco della specifica ma non nel testo: {urn}")
+    return trovate, problemi, avvisi
+
+
 def sezione_menzioni(spec):
     m = spec.get("menzioni")
-    if m is None:
+    trovate, problemi, avvisi = controlla_menzioni(spec)
+    if m is None and not trovate and not problemi:
         return ""
+    m = m or {}
+    if trovate:
+        righe = "".join(
+            f'<tr><td class="piattaforma">{html.escape(dove)}</td>'
+            f'<td class="nome-tag"><span class="menzione">{html.escape(nome)}</span></td>'
+            f'<td class="urn">{html.escape(urn)}<br>'
+            f'<span class="tipo">{"persona" if tipo == "person" else "pagina"}</span></td></tr>'
+            for dove, nome, urn, tipo in trovate)
+        nel_testo = (f'<table class="menzioni"><thead><tr><th>Dove</th>'
+                     f'<th>Nome che si vede</th><th>Identificativo che pubblica</th>'
+                     f'</tr></thead><tbody>{righe}</tbody></table>')
+    else:
+        nel_testo = ('<p class="nessuna">Nessuna menzione nel post LinkedIn: '
+                     'i nomi escono senza chiocciola.</p>')
+    lista_problemi = ""
+    if problemi:
+        lista_problemi = ('<ul class="problemi">' +
+                          "".join(f"<li>{html.escape(p)}</li>" for p in problemi) + "</ul>")
+    lista_avvisi = ""
+    if avvisi:
+        lista_avvisi = ('<ul class="dubbi">' +
+                        "".join(f"<li>{html.escape(a)}</li>" for a in avvisi) + "</ul>")
+    riga = ""
+    if m.get("riga"):
+        riga = (f'<p class="sottotitolo">Il blocco dei tag della consegna</p>'
+                f'<p class="riga-tag">{testo_html(m["riga"])}</p>')
     voci = m.get("elenco", [])
-    dubbi = m.get("dubbi", [])
+    elenco = ""
     if voci:
         righe = "".join(
             f'<tr><td class="piattaforma">{html.escape(v.get("piattaforma", ""))}</td>'
-            f'<td class="nome-tag">{html.escape(v.get("nome", ""))}</td>'
-            f'<td class="urn">{html.escape(v.get("urn", ""))}</td></tr>'
+            f'<td class="nome-tag">{html.escape(v.get("nome", ""))}'
+            + (f'<br><span class="nota-voce">{html.escape(v["nota"])}</span>'
+               if v.get("nota") else "") +
+            f'</td><td class="urn">{html.escape(v.get("urn", "")) or "senza chiocciola"}</td></tr>'
             for v in voci)
-        tabella = (f'<table class="menzioni"><thead><tr><th>Dove</th>'
-                   f'<th>Nome visualizzato</th><th>Identificativo che pubblica</th>'
-                   f'</tr></thead><tbody>{righe}</tbody></table>')
-    else:
-        tabella = ('<p class="nessuna">Nessuna menzione in questo pezzo: '
-                   'nel testo i nomi restano senza chiocciola.</p>')
+        elenco = (f'<p class="sottotitolo">Dalla specifica</p>'
+                  f'<table class="menzioni"><thead><tr><th>Dove</th>'
+                  f'<th>Nome visualizzato</th><th>Identificativo</th>'
+                  f'</tr></thead><tbody>{righe}</tbody></table>')
+    dubbi = m.get("dubbi", [])
     lista_dubbi = ""
     if dubbi:
         lista_dubbi = ("<ul class=\"dubbi\">" +
@@ -70,10 +214,12 @@ def sezione_menzioni(spec):
     <section class="canale" id="menzioni">
       <header class="intestazione-canale"><h2>Menzioni</h2></header>
       <div class="cornice"><div class="corpo-cornice">
-        {tabella}{lista_dubbi}
+        {lista_problemi}{nel_testo}{lista_avvisi}{riga}{elenco}{lista_dubbi}
       </div></div>
-      <p class="nota">L'approvazione cade sull'identificativo, non sul nome:
-      il nome visualizzato lo scriviamo noi e puo' puntare altrove.</p>
+      <p class="nota">La prima tabella è letta dal testo che si programma, non dalla
+      specifica. L'approvazione cade sull'identificativo, non sul nome: il nome
+      visualizzato lo scriviamo noi e può puntare altrove. Le righe in rosso vanno
+      corrette prima di programmare.</p>
     </section>"""
 
 
@@ -202,8 +348,8 @@ def costruisci(spec):
             for j, v in enumerate(varianti))
         corpi = "".join(
             f'<div class="variante{" attiva" if j == 0 else ""}" data-var="{j}">'
-            f'{blocco_didascalia(v.get("testo", ""), TAGLIO_LI, "vedi altro")}'
-            f'<p class="conteggio">{len(v.get("testo", ""))} caratteri</p></div>'
+            f'{blocco_didascalia(v.get("testo", ""), TAGLIO_LI, "vedi altro", menzioni=True)}'
+            f'<p class="conteggio">{conteggio_li(v.get("testo", ""))}</p></div>'
             for j, v in enumerate(varianti))
 
         sezione_li = f"""
@@ -226,11 +372,12 @@ def costruisci(spec):
         </div>
         <div class="commento">
           <span class="etichetta-commento">Primo commento</span>
-          {blocco_didascalia(li.get('primoCommento', ''), 250, 'vedi altro')}
+          {blocco_didascalia(primo_commento(li), 250, 'vedi altro')}
         </div>
       </div>
       <p class="nota">LinkedIn taglia intorno ai {TAGLIO_LI} caratteri su
-      telefono. Il titolo del documento compare sopra il carosello e oltre i
+      telefono, contati sul testo che si vede: una menzione vale quanto il suo nome.
+      Il titolo del documento compare sopra il carosello e oltre i
       {LIMITE_DOC_TITLE} caratteri Metricool rifiuta il post.</p>
     </section>"""
 
@@ -248,6 +395,7 @@ def costruisci(spec):
   --accent: {colore};
   --accent-testo: #006F66;
   --allarme: #B4341F;
+  --menzione: #0A66C2;
   --display: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif;
   --corpo: 'Instrument Sans', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -262,6 +410,7 @@ def costruisci(spec):
     --line: #1E3049;
     --accent-testo: {colore};
     --allarme: #FF8A73;
+    --menzione: #70B5F9;
   }}
 }}
 :root[data-theme="dark"] {{
@@ -273,6 +422,7 @@ def costruisci(spec):
   --line: #1E3049;
   --accent-testo: {colore};
   --allarme: #FF8A73;
+  --menzione: #70B5F9;
 }}
 
 body {{
@@ -359,11 +509,22 @@ figcaption {{ display: grid; gap: 4px; margin-top: 8px; }}
                 vertical-align: top; }}
 .menzioni .urn, .menzioni .piattaforma {{ font-family: var(--mono);
       font-size: 11.5px; color: var(--accent-testo); word-break: break-all; }}
+.menzioni .piattaforma {{ word-break: normal; }}
 .menzioni .nome-tag {{ font-weight: 600; }}
 .nessuna {{ margin: 0; font-size: 13.5px; }}
 .dubbi {{ margin: 12px 0 0; padding-left: 18px; font-size: 13px;
           color: var(--ink-soft); }}
 .dubbi li + li {{ margin-top: 6px; }}
+.menzione {{ color: var(--menzione); font-weight: 600; }}
+.menzioni .tipo, .nota-voce {{ font-family: var(--corpo); font-size: 11.5px;
+      color: var(--ink-soft); font-weight: 400; word-break: normal; }}
+.problemi {{ margin: 0 0 12px; padding-left: 18px; font-size: 13px;
+             color: var(--allarme); font-weight: 600; }}
+.problemi li + li {{ margin-top: 6px; }}
+.sottotitolo {{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em;
+                text-transform: uppercase; color: var(--ink-soft); margin: 16px 0 6px; }}
+.riga-tag {{ margin: 0; font-size: 13px; line-height: 1.5; padding: 9px 11px;
+             border-left: 3px solid var(--accent); background: var(--ground); }}
 
 code {{ font-family: var(--mono); font-size: 12px; }}
 
