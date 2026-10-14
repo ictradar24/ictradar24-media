@@ -79,6 +79,8 @@ SS = 2 * USCITA  # si disegna a 4x e si riduce a 2x, per bordi netti
 # perché a 1,03 risultava schiacciato, e il 14 ottobre ha chiesto lo stesso valore
 # su tutti gli altri titoli del carosello.
 INTERLINEA_TITOLO = 1.12
+INTERLINEA_PERCHE = 1.30        # frase d'apertura del «perché conta», Gloock (14 ottobre 2026)
+INTERLINEA_PERCHE_TESTO = 1.42  # resto del «perché conta», Work Sans
 
 # Le quattro posizioni del blip, su un marchio di lato 100 (brand book §5)
 BLIP = {"fuori": (98, 2), "rilevato": (69, 31), "vicino": (60, 40), "centro": (50, 50)}
@@ -478,8 +480,21 @@ def slide_perche(s, fmt, rub, n, tot, chiave):
         folio(d, fmt, n, tot, INK)
     y = filetto(d, fmt, fmt["MT"] + 44 + 18, "semplice", INK) + 44
     y_piede = fmt["H"] - fmt["MB"] - 108
-    c, inter = adatta(d, s["testo"], TESTATA, [70, 64, 58, 52, 46], INTERLINEA_TITOLO, maxw, y_piede - 30 - y)
-    blocco(d, ml, y, s["testo"], f(TESTATA, c), CARTA, inter, maxw)
+    # Dal 14 ottobre 2026 (Simone, prova «C» con interlinea 1,3): la frase d'apertura in Gloock,
+    # il resto in Work Sans. Campi: "apertura" + "testo"; senza "apertura" si stacca la prima frase.
+    apertura, resto = (s.get("apertura") or "").strip(), s["testo"].strip()
+    if not apertura:
+        i = resto.find(". ")
+        apertura, resto = (resto[:i + 1], resto[i + 2:]) if i > 0 else (resto, "")
+    spazio = y_piede - 30 - y
+    for c_r in (42, 40, 38, 36):
+        h_r = (altezza(d, resto, f(TESTO, c_r), c_r * INTERLINEA_PERCHE_TESTO, maxw) + 36) if resto else 0
+        c, inter = adatta(d, apertura, TESTATA, [64, 58, 52, 46], INTERLINEA_PERCHE, maxw, spazio - h_r)
+        if altezza(d, apertura, f(TESTATA, c), inter, maxw) + h_r <= spazio:
+            break
+    y = blocco(d, ml, y, apertura, f(TESTATA, c), CARTA, inter, maxw)
+    if resto:
+        blocco(d, ml, y + 36, resto, f(TESTO, c_r), CARTA, c_r * INTERLINEA_PERCHE_TESTO, maxw)
     piede(d, fmt, INK, "vicino", testo="La lettura della redazione, a partire dai fatti qui sopra.")
     return img
 
