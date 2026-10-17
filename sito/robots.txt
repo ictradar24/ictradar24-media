@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://ictradar24.com/sitemap.xml
