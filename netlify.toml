@@ -1,0 +1,5 @@
+# Il sito ictradar24.com: Netlify pubblica la cartella sito/ a ogni push su main.
+# Il sito e' statico, generato da claude/build_sito.py nel Progetto; qui vanno solo i file pronti.
+[build]
+  publish = "sito"
+  command = ""
