@@ -55,6 +55,13 @@ RUBRICHE = {
     "radar":        dict(campo="carta", filetto="semplice", piena=True,  nome="Radar"),
     "italia":       dict(campo="carta", filetto="riga",     piena=True,  nome="Italia"),
     "allerta":      dict(campo="carta", filetto="semplice", piena=True,  nome="Allerta"),
+    # Focus: carosello monotematico. In copertina il nome non sta nella linguetta
+    # piccola ma è scritto grande in arancio sopra il titolo, e il nome preciso
+    # («Focus Nvidia») arriva dal campo «nome_rubrica» della specifica.
+    # Entrato nello strumento il 19 novembre 2026: fino ad allora viveva in una
+    # patch in memoria su una macchina sola, e un Focus prodotto altrove usciva
+    # con la linguetta del Radar.
+    "focus":        dict(campo="carta", filetto="semplice", piena=True,  nome="Focus"),
     "segnalato":    dict(campo="carta", filetto="semplice", piena=True,  nome="Segnalato da voi"),
     "gartner":      dict(campo="carta", filetto="doppio",   piena=True,  nome="Gartner NBA Edition"),
     "cofano":       dict(campo="carta", filetto="tratteggiato", piena=True, nome="Sotto il cofano"),
@@ -172,16 +179,24 @@ def linguetta(d, x, y, testo, campo, piena=True, arancio=False):
 
 
 def folio(d, fmt, n, tot, campo, y=None):
-    """«02 / 07» a destra: il numero corrente in arancio, il totale in piombo."""
+    """«02 / 07» a destra: il numero corrente in arancio, il totale in piombo.
+
+    Sul campo arancio (copertina dell'Allerta) l'arancio su arancio sparisce:
+    lì il numero va in Carta e il totale in Ink, come la testata e il
+    sottotitolo sullo stesso campo. Corretto il 19 novembre 2026, dopo che
+    l'Allerta del 18 è uscita due volte con il numero invisibile.
+    """
     if y is None:
         y = fmt["MT"] + 36
     fb, fr = f(TAB, 34), f(TAB_R, 34)
     a, b = f"{n:02d}", f" / {tot:02d}"
     la, lb = d.textlength(a, font=fb) / SS, d.textlength(b, font=fr) / SS
     x = fmt["W"] - fmt["ML"] - la - lb
-    d.text((x * SS, y * SS), a, font=fb, fill=SEG, anchor="ls")
+    d.text((x * SS, y * SS), a, font=fb,
+           fill=(CARTA if campo == SEG else SEG), anchor="ls")
     d.text(((x + la) * SS, y * SS), b, font=fr,
-           fill=(CARTA_2 if campo == INK else PIOMBO), anchor="ls")
+           fill=(CARTA_2 if campo == INK else (INK if campo == SEG else PIOMBO)),
+           anchor="ls")
 
 
 def filetto(d, fmt, y, tipo, campo):
@@ -316,6 +331,12 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
         return slide_voce(s, fmt, rub, n, tot, chiave)
     if chiave == "allerta":
         campo = SEG
+    if not s.get("piede"):
+        # La data in copertina esce solo se la specifica ha «piede». Senza, la
+        # slide esce muta e non se ne accorge nessuno finché non è pubblicata:
+        # è successo all'Allerta del 18 novembre 2026. Avviso aggiunto il 19.
+        print("ATTENZIONE: copertina senza campo «piede», la data non comparirà.",
+              file=sys.stderr)
     img, d = canvas(fmt, campo)
     ml, maxw = fmt["ML"], fmt["W"] - fmt["ML"] * 2
     fascia = chiave == "italia"
@@ -334,10 +355,18 @@ def slide_copertina(s, fmt, rub, n, tot, chiave):
     # «linguetta» nella specifica sostituisce il nome della rubrica solo in copertina
     # (Gartner: «Gartner® NBA Edition», prima menzione con il ® della policy di Gartner)
     nome = s.get("linguetta") or NOME_COPERTINA.get(chiave, rub["nome"])
-    linguetta(d, ml, y, nome, campo, True, fascia)
-    if n:
-        folio(d, fmt, n, tot, campo, y + 36)
-    y += 44 + 34
+    if chiave == "focus":
+        # Focus: il nome della rubrica grande sopra il titolo, al posto della linguetta
+        spaziato(d, ml, y + 58, nome.upper(), f(TAB, 76),
+                 INK if campo == SEG else SEG, 5)
+        if n:
+            folio(d, fmt, n, tot, campo, y + 50)
+        y += 76 + 34
+    else:
+        linguetta(d, ml, y, nome, campo, True, fascia)
+        if n:
+            folio(d, fmt, n, tot, campo, y + 36)
+        y += 44 + 34
     # il blocco in basso: «E poi» (o il tabellone) e il piede
     y_piede = fmt["H"] - fmt["MB"] - 108
     voci = s.get("epoi") or []
@@ -765,7 +794,15 @@ def main(percorso_json):
         spec = json.load(fh)
 
     chiave = spec["rubrica"]
-    rub = RUBRICHE.get(chiave, RUBRICHE["radar"])
+    # «nome_rubrica» nella specifica dà il nome preciso dell'uscita: serve al Focus,
+    # che cambia soggetto ogni volta («Focus Nvidia», «Focus Microsoft»). Si sostituisce
+    # nella tabella e non solo in «rub», perché le slide notizia rileggono la tabella
+    # per chiave e altrimenti tornerebbero al nome generico.
+    rubriche = dict(RUBRICHE)
+    if spec.get("nome_rubrica"):
+        rubriche[chiave] = dict(rubriche.get(chiave, rubriche["radar"]),
+                                nome=spec["nome_rubrica"])
+    rub = rubriche.get(chiave, rubriche["radar"])
     fmt = STORIA if spec.get("formato") == "storia" else POST
     outdir = spec.get("output", "/mnt/user-data/outputs/slide")
     os.makedirs(outdir, exist_ok=True)
@@ -776,7 +813,7 @@ def main(percorso_json):
         # Una slide può dichiarare una propria rubrica: serve al blocco Italia dentro il
         # Radar, che prende linguetta arancio e riga Italia al posto del filetto semplice.
         chiave_slide = s.get("rubrica") or chiave
-        rub_slide = RUBRICHE.get(chiave_slide, rub)
+        rub_slide = rubriche.get(chiave_slide, rub)
         n = None if fmt is STORIA else i
         img = TIPI[s["tipo"]](s, fmt, rub_slide, n, totale, chiave_slide)
         nome = s.get("file") or f"{i:02d}-{s.get('nome', s['tipo'])}.png"
