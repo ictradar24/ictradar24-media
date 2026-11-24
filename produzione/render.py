@@ -572,10 +572,17 @@ def slide_premio(s, fmt, rub, n, tot, chiave):
         y += c * 0.9 + 6
     spaziato(d, ml, y + 36, s["criterio"].upper(), f(TAB_R, 32), PIOMBO, 2.6)
     y += 36 + 54
-    fv = f(TESTATA, 150)
+    # Nomi lunghi («ServiceNow (Pyramid Analytics)»): oltre due righe a 150 il vincitore
+    # scende di corpo fino a stare in due righe, perché la nota non tocchi il filetto del piede
+    # (23 novembre 2026).
+    for cv in (150, 128, 112, 96, 84):
+        righe_v = wrap(d, s["vincitore"], f(TESTATA, cv), maxw)
+        if len(righe_v) <= 2 and all(d.textlength(r, font=f(TESTATA, cv)) <= maxw * SS for r in righe_v):
+            break
+    fv = f(TESTATA, cv)
     for r in wrap(d, s["vincitore"], fv, maxw):
-        d.text((ml * SS, (y + 150 * 0.75) * SS), r, font=fv, fill=SEG, anchor="ls")
-        y += 150 * INTERLINEA_TITOLO
+        d.text((ml * SS, (y + cv * 0.75) * SS), r, font=fv, fill=SEG, anchor="ls")
+        y += cv * INTERLINEA_TITOLO
     if s.get("nota"):
         blocco(d, ml, y + 34, s["nota"], f(TESTO, 38), INK, 54, maxw - 100)
     piede(d, fmt, CARTA, "rilevato", testo=s.get("fonte"), etichetta=("Fonte" if s.get("fonte") else None))
@@ -612,6 +619,12 @@ def slide_quintetto(s, fmt, rub, n, tot, chiave):
     for v in s["voci"]:
         d.rectangle([ml * SS, y * SS, (fmt["W"] - ml) * SS, (y + 2) * SS], fill=FILO)
         base = y + 16 + 58 * 0.75
+        # un nome lungo non deve toccare il quadrante a destra: si riduce il corpo (23 novembre 2026)
+        spazio = maxw - larghezza_spaziata(d, v["quadrante"].upper(), fq, 3) - 30
+        cn = 58
+        while cn > 34 and d.textlength(v["nome"], font=f(TESTATA, cn)) > spazio * SS:
+            cn -= 2
+        fnome = f(TESTATA, cn)
         d.text((ml * SS, base * SS), v["nome"], font=fnome, fill=INK, anchor="ls")
         spaziato_dx(d, fmt["W"] - ml, base, v["quadrante"].upper(), fq, SEG, 3)
         y += 16 + 58 * 0.9 + 12
