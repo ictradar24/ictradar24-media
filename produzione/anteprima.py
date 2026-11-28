@@ -382,6 +382,7 @@ def costruisci(spec):
     </section>"""
 
     return f"""<title>{html.escape(spec.get('titolo', 'Anteprima'))}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -530,6 +531,27 @@ code {{ font-family: var(--mono); font-size: 12px; }}
 
 .nota {{ font-size: 12.5px; color: var(--ink-soft); margin: 10px 0 0;
          max-width: 60ch; }}
+
+/* Leggibile da telefono: Simone guarda le anteprime quasi sempre da cellulare
+   (decisione del 28 novembre 2026). Una slide per riga, caratteri più grandi. */
+@media (max-width: 700px) {{
+  body {{ font-size: 17px; line-height: 1.6; }}
+  .guscio {{ padding-inline: 14px; padding-block: 18px 48px; }}
+  .testata h1 {{ font-size: 24px; }}
+  .impalcatura {{ gap: 26px; }}
+  .striscia {{ grid-template-columns: 1fr; gap: 26px; }}
+  .slide img {{ border-radius: 8px; }}
+  .alt {{ font-size: 14.5px; line-height: 1.5; }}
+  .num, .peso, .meta, .orario, .conteggio, .conta-doc {{ font-size: 13px; }}
+  .handle {{ font-size: 15px; }}
+  .corpo-cornice, .documento, .commento {{ padding: 14px 12px; }}
+  .didascalia, .titolo-doc {{ font-size: 16.5px; }}
+  .commento, .didascalia {{ overflow-wrap: anywhere; }}
+  .menzioni {{ display: block; overflow-x: auto; font-size: 14px; }}
+  .menzioni .urn {{ font-size: 12.5px; }}
+  .dubbi, .nessuna, .problemi, .riga-tag, .nota {{ font-size: 15px; }}
+  .tab {{ font-size: 15px; padding: 8px 14px; }}
+}}
 </style>
 
 <div class="guscio">
